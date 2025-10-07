@@ -1,3 +1,5 @@
+# 📂 Project Structure
+```
 📁 project_root/
 ├── 📁 data/
 │   ├── 📄 members_v3.csv
@@ -24,5 +26,5 @@
 ├── 📄 Dockerfile
 ├── 📄 Readme.md
 └── 📄 requirements.txt
-
+```
 
