@@ -1,0 +1,25 @@
+[
+  {
+    "dataset_name": "user_logs",
+    "total_rows": 18396362,
+    "total_columns": 13,
+    "columns": [
+      "msno",
+      "date",
+      "num_25",
+      "num_50",
+      "num_75",
+      "num_985",
+      "num_100",
+      "num_unq",
+      "total_secs",
+      "source_file",
+      "bronze_ingestion_timestamp",
+      "year",
+      "month"
+    ],
+    "processing_timestamp": "2025-10-20 15:30:37",
+    "distinct_users": 1103894,
+    "distinct_months": 1
+  }
+]
