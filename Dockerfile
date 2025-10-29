@@ -28,6 +28,7 @@ COPY requirements.txt ./
 # Install Python dependencies (ensure that pyspark is in your requirements.txt,
 # or you can install it explicitly by uncommenting the next line)
 RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install jupyter-collaboration
 # RUN pip install pyspark
 
 # Expose the default JupyterLab port
@@ -40,4 +41,5 @@ VOLUME /app
 ENV JUPYTER_ENABLE_LAB=yes
 
 # Set up the command to run JupyterLab
-CMD ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root", "--notebook-dir=/app"]
+CMD ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root", "--notebook-dir=/app", "--collaborative"]
+
