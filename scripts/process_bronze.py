@@ -28,8 +28,9 @@ from utils.bronze_processing import (
     merge_dataframes,
     write_partitioned_parquet,
     validate_dataframe,
-    get_processing_summary,
+    get_processing_summary_enhanced,
     incremental_merge_with_dedup,
+    save_summary_with_history,
     cleanup_spark
 )
 
@@ -157,7 +158,7 @@ def process_transactions(spark, config: Dict, args=None) -> Dict:
         
         # Generate final summary
         df_bronze = spark.read.parquet(config['paths']['bronze_transactions'])
-        summary = get_processing_summary(df_bronze, 'transactions')
+        summary = get_processing_summary_enhanced(df_bronze, 'transactions')
         
         logger.info("=" * 80)
         logger.info("✅ All transaction files processed successfully")
@@ -217,7 +218,7 @@ def process_members(spark, config: Dict) -> Dict:
         )
         
         # Generate summary
-        summary = get_processing_summary(df_final, 'members')
+        summary = get_processing_summary_enhanced(df_final, 'members')
         logger.info("✅ Members processing completed successfully")
         
         return summary
@@ -326,7 +327,7 @@ def process_user_logs(spark, config: Dict, args=None) -> Dict:
         
         # Generate final summary
         df_bronze = spark.read.parquet(config['paths']['bronze_user_logs'])
-        summary = get_processing_summary(df_bronze, 'user_logs')
+        summary = get_processing_summary_enhanced(df_bronze, 'user_logs')
         
         logger.info("=" * 80)
         logger.info("✅ All user_logs files processed successfully")
@@ -421,7 +422,7 @@ def main():
             summaries.append(summary)
         
         # Save summary report
-        save_summary_report(summaries)
+        save_summary_with_history()
         
         logger.info("=" * 80)
         logger.info("✅ ALL PROCESSING COMPLETED SUCCESSFULLY")

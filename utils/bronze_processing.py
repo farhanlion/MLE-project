@@ -254,6 +254,7 @@ def write_partitioned_parquet(
                     .mode(mode) \
                     .option("header", "true") \
                     .partitionBy(*partition_columns) \
+                    .option("partitionOverwriteMode", "dynamic") \  # ADD THIS!
                     .parquet(output_path)
             else:
                 df.write \
@@ -278,6 +279,7 @@ def write_partitioned_parquet(
             df.write \
                 .mode("overwrite") \
                 .option("header", "true") \
+                .option("partitionOverwriteMode", "dynamic") \  # ADD THIS!
                 .partitionBy(*partition_columns) \
                 .parquet(staging_path)
         else:
