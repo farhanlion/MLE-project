@@ -14,6 +14,6 @@ services:
       "--port=8888",
       "--no-browser",
       "--allow-root",
-      "--notebook-dir=/app",
-      "--collaborative"
+      "--notebook-dir=/app"
+      #"--collaborative"
     ]
