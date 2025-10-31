@@ -27,6 +27,10 @@ def create_gold_features(inference_date: str, spark, output_path: str = "datamar
         .option("header", True).option("inferSchema", True)
         .parquet("datamart/silver/transactions"))
 
+    df_latest_transactions = (spark.read
+        .option("header", True).option("inferSchema", True)
+        .parquet("datamart/silver/latest_transactions"))
+
     df_members = (spark.read
         .option("header", True).option("inferSchema", True)
         .parquet("datamart/silver/members"))
@@ -36,22 +40,26 @@ def create_gold_features(inference_date: str, spark, output_path: str = "datamar
     # -------------------------
     registered_users = (
         df_members
-        .withColumn("registration_date", to_date(col("registration_date")))
-        .filter(col("registration_date") <= to_date(lit(inference_date)))
+        .withColumn("registration_date", F.to_date("registration_date"))
+        .filter(F.col("registration_date") <= F.to_date(F.lit(inference_date)))
         .withColumn(
             "tenure_days_at_snapshot",
-            F.datediff(to_date(lit(inference_date)), col("registration_date"))
+            F.datediff(F.to_date(F.lit(inference_date)), F.col("registration_date"))
         )
         .select(
             "msno",
-            "registration_date",
+            "registration_date",  
             "tenure_days_at_snapshot",
             "registered_via",
-            "city_clean",
-            "via_oh",
-            "city_oh",
+            "city_clean"
         )
     )
+    
+    # Create one-hot encoding while explicitly selecting all needed columns
+    registered_users = registered_users \
+        .withColumn("registered_via_oh", F.when(F.col("registered_via").isNull(), 0).otherwise(F.col("registered_via"))) \
+        .withColumn("city_clean_oh", F.when(F.col("city_clean").isNull(), 0).otherwise(F.col("city_clean"))) \
+        .select("msno", "registration_date", "tenure_days_at_snapshot", "registered_via", "city_clean", "registered_via_oh", "city_clean_oh")
 
     # -------------------------
     # 3) User logs windows (7d / 30d ending at inference_date)
@@ -109,13 +117,17 @@ def create_gold_features(inference_date: str, spark, output_path: str = "datamar
 
     # Days since last play (as of inference_date)
     last_play = (
-        df_userlogs.filter(col("date") <= ref_today)
+        df_userlogs
+        .filter(F.col("date") <= ref_today)
         .groupBy("msno")
         .agg(F.max("date").alias("last_play_date"))
     )
+    
     registered_users = (
-        registered_users.join(last_play, on="msno", how="left")
-        .withColumn("days_since_last_play", F.datediff(ref_today, col("last_play_date")))
+        registered_users
+        .join(last_play, on="msno", how="left")
+        .withColumn("days_since_last_play", 
+                    F.datediff(ref_today, F.col("last_play_date")))
     )
 
     # Trend (slope) of daily secs over 30d window
@@ -143,48 +155,58 @@ def create_gold_features(inference_date: str, spark, output_path: str = "datamar
     )
 
     # Latest transaction date and tenure_days (registration -> latest_tx)
-    latest_tx = (
-        df_transactions_filtered.groupBy("msno")
-        .agg(F.max("transaction_date").alias("latest_transaction_date"))
-    )
-    registered_users = (
-        registered_users.join(latest_tx, on="msno", how="left")
-        .withColumn(
-            "tenure_days",
-            F.datediff(col("latest_transaction_date"), col("registration_date"))
-        )
+
+    registered_users = (registered_users
+        .join(df_latest_transactions, on="msno", how="left")
+        .withColumn("tenure_days",
+                    F.datediff(F.col("transaction_date"), F.col("registration_date")))
         .na.fill({"tenure_days": 0})
     )
 
     # Auto-renew share (global up to inference_date)
     auto_renew_stats = (
-        df_transactions_filtered.groupBy("msno")
+        df_transactions_filtered
+        .groupBy("msno")
         .agg(
-            F.sum(F.when(col("is_auto_renew") == 1, 1).otherwise(0)).alias("auto_renew_count"),
-            F.count(F.lit(1)).alias("total_tx_before_expire"),
+            F.sum(F.when(F.col("is_auto_renew") == 1, 1).otherwise(0)).alias("auto_renew_count"),
+            F.count("*").alias("total_tx_before_expire")
         )
         .withColumn(
             "auto_renew_share",
-            col("auto_renew_count") / F.when(col("total_tx_before_expire") > 0, col("total_tx_before_expire")).otherwise(F.lit(1.0))
+            F.col("auto_renew_count") / F.when(F.col("total_tx_before_expire") > 0, F.col("total_tx_before_expire")).otherwise(F.lit(1))
         )
-        .select("msno", "auto_renew_share")
     )
+    
     registered_users = (
-        registered_users.join(auto_renew_stats, on="msno", how="left")
+        registered_users
+        .join(auto_renew_stats.select("msno", "auto_renew_share"), on="msno", how="left")
         .na.fill({"auto_renew_share": 0.0})
     )
 
     # Last is_auto_renew flag
-    w_latest = Window.partitionBy("msno").orderBy(col("transaction_date").desc())
-    latest_tx_flag = (
-        df_transactions_filtered
-        .withColumn("rn", F.row_number().over(w_latest))
-        .filter(col("rn") == 1)
-        .select("msno", col("is_auto_renew").alias("last_is_auto_renew"))
+    last_is_auto_renew = (
+        df_latest_transactions
+        .select("msno", "is_auto_renew")
+        .withColumnRenamed("is_auto_renew", "last_is_auto_renew")
     )
-    registered_users = (
-        registered_users.join(latest_tx_flag, on="msno", how="left")
-        .na.fill({"last_is_auto_renew": 0})
+    
+    # Join to registered_users
+    registered_users = (registered_users
+        .join(last_is_auto_renew, on="msno", how="left")
+        # Nulls remain as null - representing users with no transaction history
+    )
+
+    # last_list_price
+    last_list_price = (
+        df_latest_transactions
+        .select("msno", "plan_list_price")
+        .withColumnRenamed("plan_list_price", "last_plan_list_price")
+    )
+    
+    # Join to registered_users
+    registered_users = (registered_users
+        .join(last_list_price, on="msno", how="left")
+        # Nulls remain as null - representing users with no transaction history
     )
 
     # Ensure no nulls in numeric aggregates (defensive)
@@ -196,9 +218,7 @@ def create_gold_features(inference_date: str, spark, output_path: str = "datamar
         "engagement_ratio_7_30": 0.0,
         "days_since_last_play": 0,
         "trend_secs_w30": 0.0,
-        "tenure_days": 0,
-        "auto_renew_share": 0.0,
-        "last_is_auto_renew": 0,
+        "tenure_days": 0
     })
 
     # -------------------------
