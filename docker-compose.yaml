@@ -1,0 +1,19 @@
+services:
+  jupyter:
+    build: .
+    container_name: jupyter_lab2
+    ports:
+      - "8888:8888"
+    volumes:
+      - .:/app
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+    command: [
+      "jupyter", "lab",
+      "--ip=0.0.0.0",
+      "--port=8888",
+      "--no-browser",
+      "--allow-root",
+      "--notebook-dir=/app"
+      #"--collaborative"
+    ]
