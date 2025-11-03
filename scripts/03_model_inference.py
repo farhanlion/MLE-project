@@ -45,7 +45,7 @@ def main(snapshotdate, modelname):
     config["snapshot_date_str"] = snapshotdate
     config["snapshot_date"] = datetime.strptime(config["snapshot_date_str"], "%Y-%m-%d")
     config["model_name"] = modelname
-    config["model_bank_directory"] = "notebooks/06_modelling/model_bank/"
+    config["model_bank_directory"] = "/app/notebooks/06_modelling/model_bank/"
     config["model_artefact_filepath"] = config["model_bank_directory"] + config["model_name"]
     
     pprint.pprint(config)
@@ -60,7 +60,7 @@ def main(snapshotdate, modelname):
 
 
     # --- load feature store ---
-    feature_location = "datamart/gold/feature_store/"
+    feature_location = "/app/datamart/gold/inference_feature_store"
     
     # Option 1: Check if specific partition exists and load it
     specific_feature_file = f"{feature_location}snapshot_date={config['snapshot_date_str']}/*.parquet"
