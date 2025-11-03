@@ -5,3 +5,5 @@ datamart/
 __pycache__/.jupyter_ystore.db
 utils/__pycache__/
 __pycache__/
+logs/
+
