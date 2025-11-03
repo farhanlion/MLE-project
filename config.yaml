@@ -1,0 +1,222 @@
+# 🎵 KKBOX Churn Prediction - Configuration
+
+project:
+  name: "kkbox-churn-prediction"
+  version: "0.1.0"
+
+# 📁 Data paths (simplified flat structure)
+paths:
+  # User logs - scalable format (multiple files)
+  user_logs_files:
+    - "data/user_logs.csv"
+    - "data/user_logs_v2.csv"
+    # Add more files as needed:
+    # - "data/user_logs_v3.csv"
+  
+  # Transactions - scalable format (multiple files)
+  transaction_files:
+    - "data/transactions.csv"
+    - "data/transactions_v2.csv"
+    # Add more files as needed:
+    # - "data/transactions_v3.csv"
+  
+  # Members - single file
+  members: "data/members_v3.csv"
+  
+  # 🥉 Bronze layer (parquet format)
+  bronze_dir: "datamart/bronze"
+  bronze_transactions: "datamart/bronze/transactions"
+  bronze_members: "datamart/bronze/members"
+  bronze_user_logs: "datamart/bronze/user_logs"
+  
+  # 🥈 Silver layer (cleaned & joined)
+  silver_dir: "datamart/silver"
+  silver_users: "datamart/silver/users_cleaned"
+  silver_transactions: "datamart/silver/transactions_agg"
+  silver_listening: "datamart/silver/listening_agg"
+  silver_master: "datamart/silver/master_dataset"
+  
+  # 🥇 Gold layer (ML-ready)
+  gold_dir: "datamart/gold"
+  gold_training: "datamart/gold/training"
+  gold_inference: "datamart/gold/inference"
+  
+  # 🤖 Models
+  models_dir: "models"
+  experiments_dir: "models/experiments"
+  production_dir: "models/production"
+  
+  # 📋 Logs & Reports
+  logs_dir: "logs"
+  reports_dir: "reports"
+  data_quality_dir: "reports/data_quality"
+
+# ⚙️ Spark configuration
+spark:
+  app_name: "kkbox-churn"
+  master: "local[*]"
+  driver_memory: "8g"
+  executor_memory: "4g"
+  log_level: "ERROR"
+
+# 🥉 Bronze layer settings
+bronze:
+  write_mode: "overwrite"
+  use_staging: true  # Enable safe writes with staging pattern for ALL datasets
+  
+  # Partitioning strategy
+  partitions:
+    transactions: ["year", "month"]
+    user_logs: ["year", "month"]
+    members: []  # No partitioning (single file, spans 14 years)
+  
+  # Expected schema validation
+  expected_columns:
+    transactions:
+      - msno
+      - payment_method_id
+      - payment_plan_days
+      - plan_list_price
+      - actual_amount_paid
+      - is_auto_renew
+      - transaction_date
+      - membership_expire_date
+      - is_cancel
+    
+    members:
+      - msno
+      - city
+      - bd
+      - gender
+      - registered_via
+      - registration_init_time
+    
+    user_logs:
+      - msno
+      - date
+      - num_25
+      - num_50
+      - num_75
+      - num_985
+      - num_100
+      - num_unq
+      - total_secs
+
+# 🥈 Silver layer settings
+silver:
+  write_mode: "overwrite"
+  
+  # Data quality rules
+  cleaning:
+    members:
+      bd_min: 0
+      bd_max: 100
+      bd_default: 0
+      invalid_gender_values: [""]
+      gender_default: "unknown"
+    
+    transactions:
+      amount_min: 0
+      plan_days_min: 0
+    
+    user_logs:
+      total_secs_min: 0
+      remove_zero_activity: false
+  
+  # Aggregation windows
+  aggregation:
+    user_logs:
+      windows: [7, 30, 90]  # days
+      metrics: ["sum", "mean", "max", "count"]
+
+# 🥇 Gold layer settings
+gold:
+  # Feature engineering flags
+  features:
+    user_demographic: true
+    transaction_patterns: true
+    listening_behavior: true
+    temporal_features: true
+    recency_features: true
+  
+  # Train/val/test split
+  split:
+    train: 0.7
+    val: 0.15
+    test: 0.15
+    random_seed: 42
+    stratify_by: "is_churn"
+  
+  # Feature selection
+  selection:
+    correlation_threshold: 0.95
+    variance_threshold: 0.01
+
+# 🤖 Model configuration
+model:
+  # Primary algorithm
+  algorithm: "xgboost"  # Options: xgboost, lightgbm, random_forest
+  
+  # Hyperparameters
+  params:
+    xgboost:
+      n_estimators: 100
+      max_depth: 6
+      learning_rate: 0.1
+      subsample: 0.8
+      colsample_bytree: 0.8
+      scale_pos_weight: 3  # Adjust for imbalanced classes
+      eval_metric: "auc"
+      early_stopping_rounds: 10
+      random_state: 42
+    
+    random_forest:
+      n_estimators: 100
+      max_depth: 10
+      min_samples_split: 5
+      class_weight: "balanced"
+      random_state: 42
+  
+  # Cross-validation
+  cv:
+    enabled: true
+    n_folds: 5
+    scoring: "roc_auc"
+  
+  # Handle class imbalance
+  imbalance:
+    method: "smote"  # Options: smote, undersample, oversample, none
+    sampling_strategy: 0.5
+
+# 📊 Evaluation
+evaluation:
+  primary_metric: "roc_auc"
+  
+  metrics:
+    - accuracy
+    - precision
+    - recall
+    - f1_score
+    - roc_auc
+  
+  threshold: 0.5
+  min_acceptable_auc: 0.70
+
+# 📝 Logging
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  
+  files:
+    bronze: "logs/bronze_processing.log"
+    silver: "logs/silver_processing.log"
+    gold: "logs/gold_processing.log"
+    training: "logs/training.log"
+
+# 🔧 Development mode
+dev_mode:
+  enabled: false  # Set to true for faster iteration
+  sample_fraction: 0.1  # Use 10% of data
+
+# 🎲 Reproducibility
+random_seed: 42
