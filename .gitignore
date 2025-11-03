@@ -2,4 +2,4 @@ data/
 datamart/
 .ipynb_checkpoints/
 .Trash-0/
-__pycache__/
+__pycache__/.jupyter_ystore.db
