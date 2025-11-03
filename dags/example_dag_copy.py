@@ -25,7 +25,7 @@ with DAG(
 
     task2 = BashOperator(
         task_id='first_hello',
-        bash_command='python /opt/airflow/scripts/helloForAirflow.py'
+        bash_command='python /opt/airflow/scripts/helloForAirflow.py' #in our scripts folder
     )
 
 
