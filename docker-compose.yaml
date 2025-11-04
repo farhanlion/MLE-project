@@ -23,9 +23,10 @@ services:
       - AIRFLOW__LOGGING__REMOTE_LOGGING=False
       - MLFLOW_TRACKING_URI=http://mlflow:5000
     volumes:
-      - ./airflow:/opt/airflow         # persist metadata db + configs
+      - ./airflow:/opt/airflow
       - ./dags:/opt/airflow/dags
       - ./scripts:/opt/airflow/scripts
+      - ./datamart:/app/datamart
       - ./logs:/opt/airflow/logs
       - ./plugins:/opt/airflow/plugins
     entrypoint: >
@@ -46,9 +47,10 @@ services:
       - AIRFLOW__LOGGING__REMOTE_LOGGING=False
       - MLFLOW_TRACKING_URI=http://mlflow:5000
     volumes:
-      - ./airflow:/opt/airflow         # persist metadata db + configs
+      - ./airflow:/opt/airflow
       - ./dags:/opt/airflow/dags
       - ./scripts:/opt/airflow/scripts
+      - ./datamart:/app/datamart
       - ./logs:/opt/airflow/logs
       - ./plugins:/opt/airflow/plugins
     ports:
@@ -70,9 +72,10 @@ services:
       - AIRFLOW__LOGGING__REMOTE_LOGGING=False
       - MLFLOW_TRACKING_URI=http://mlflow:5000
     volumes:
-      - ./airflow:/opt/airflow         # persist metadata db + configs
+      - ./airflow:/opt/airflow
       - ./dags:/opt/airflow/dags
       - ./scripts:/opt/airflow/scripts
+      - ./datamart:/app/datamart
       - ./logs:/opt/airflow/logs
       - ./plugins:/opt/airflow/plugins
     command: scheduler
