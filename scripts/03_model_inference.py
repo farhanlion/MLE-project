@@ -145,7 +145,11 @@ def main(snapshotdate, modelname):
 
     # --- preprocess data for modeling ---
     # prepare X_inference
-    feature_cols = [fe_col for fe_col in features_pdf.columns if fe_col.startswith('fe_')]
+    # feature_cols = [fe_col for fe_col in features_pdf.columns if fe_col.startswith('fe_')]
+    feature_cols = ['tenure_days_at_snapshot', 'registered_via', 'city_clean', 
+                'sum_secs_w30', 'active_days_w30', 'complete_rate_w30', 
+                'sum_secs_w7', 'engagement_ratio_7_30', 'days_since_last_play', 
+                'trend_secs_w30', 'auto_renew_share', 'last_is_auto_renew']
     X_inference = features_pdf[feature_cols]
     
     # apply transformer - standard scaler
