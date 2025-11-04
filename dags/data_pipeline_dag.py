@@ -67,7 +67,7 @@ with DAG(
         task_id='silver_table_max_expiry_date',
         bash_command=(
             'cd /app/airflow/scripts && '
-            'python3 max_expiry_date.py '
+            'python3 02_max_expiry_latest_txn_bronzetosilver.py '
             '--snapshotdate "{{ ds }}"'
         ),
     )
@@ -78,7 +78,7 @@ with DAG(
         task_id="gold_inference_feature_store",        
         bash_command=(
             'cd /app/airflow/scripts && '
-            'python3 inference_feature.py '
+            'python3 02_inference_feature_gold.py '
             '--snapshotdate "{{ ds }}"'
         ),
     )

@@ -42,7 +42,7 @@ with DAG(
         task_id="run_model_prediction",      
         bash_command=(
             'cd /app/airflow/scripts && '
-            'python3 03_model_inference.py '  
+            'python3 03_model_inference_mlflow.py '  
             '--snapshotdate "{{ ds }}"'
         ),
     )
