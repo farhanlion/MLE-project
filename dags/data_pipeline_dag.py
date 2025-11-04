@@ -29,8 +29,7 @@ with DAG(
     bronze_table = BashOperator(
         task_id='bronze_table',
         bash_command=(
-            'cd /app/airflow/scripts && '
-            'python3 01_process_bronze.py '
+            'python /opt/airflow/scripts/helloForAirflow.py '
             '--snapshotdate "{{ ds }}"'
         ),
     )
@@ -39,18 +38,14 @@ with DAG(
     silver_table_members = BashOperator(
         task_id='silver_table_members',
         bash_command=(
-            'cd /app/airflow/scripts && '
-            'python3 02_members_bronzetosilver.py '
-            '--snapshotdate "{{ ds }}"'
+            'python /opt/airflow/scripts/02_members_bronzetosilver.py '
         ),
     )
 
     silver_table_transactions = BashOperator(
         task_id='silver_table_transactions',
         bash_command=(
-            'cd /app/airflow/scripts && '
-            'python3 02_transactions_bronzetosilver.py '
-            '--snapshotdate "{{ ds }}"'
+            'python /opt/airflow/scripts/02_transactions_bronzetosilver.py '
         ),
     )
 
@@ -84,11 +79,12 @@ with DAG(
     )
 
     # 1. Pipeline Start to Bronze
-    pipeline_start >> bronze_table
+    # pipeline_start >> bronze_table
 
     # 2. Bronze to ALL Silver tasks (run in parallel)
     # The list/tuple syntax means all tasks in the list/tuple will start once the preceding task (bronze_table) succeeds.
-    bronze_table >> [
+    # bronze_table >> [
+    pipeline_start>>[
         silver_table_members,
         silver_table_transactions,
         silver_table_userlogs,
