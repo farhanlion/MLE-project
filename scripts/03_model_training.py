@@ -227,6 +227,21 @@ def train_model(
 
         mlflow.sklearn.log_model(best_model, f"{model_name}_model")
 
+        # --- Register best model to MLflow Model Registry ---
+        run_id = mlflow.active_run().info.run_id
+        model_uri = f"runs:/{run_id}/{model_name}_model"
+
+        try:
+            result = mlflow.register_model(
+                model_uri=model_uri,
+                name=model_name
+            )
+            print(f"✅ Registered model: {model_name} (version={result.version})")
+
+        except Exception as e:
+            print(f"⚠️ Model registration failed: {e}")
+
+
         return best_model, metrics
 
 
