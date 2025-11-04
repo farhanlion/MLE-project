@@ -8,6 +8,7 @@ services:
       - .:/app
     environment:
       - JUPYTER_ENABLE_LAB=yes
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
     command: ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root", "--notebook-dir=/app", "--ServerApp.token=''", "--ServerApp.disable_check_xsrf=True"]
 
   airflow-init:
@@ -20,6 +21,7 @@ services:
       - AIRFLOW__WEBSERVER__BASE_URL=http://localhost:8080
       - AIRFLOW__LOGGING__BASE_LOG_FOLDER=/opt/airflow/logs
       - AIRFLOW__LOGGING__REMOTE_LOGGING=False
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
     volumes:
       - ./airflow:/opt/airflow         # persist metadata db + configs
       - ./dags:/opt/airflow/dags
@@ -31,7 +33,6 @@ services:
 
   airflow-webserver:
     build: ./airflow
-    # This is the corrected block
     depends_on:
       airflow-init:
         condition: service_completed_successfully
@@ -43,6 +44,7 @@ services:
       - AIRFLOW__WEBSERVER__BASE_URL=http://localhost:8080
       - AIRFLOW__LOGGING__BASE_LOG_FOLDER=/opt/airflow/logs
       - AIRFLOW__LOGGING__REMOTE_LOGGING=False
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
     volumes:
       - ./airflow:/opt/airflow         # persist metadata db + configs
       - ./dags:/opt/airflow/dags
@@ -55,7 +57,6 @@ services:
 
   airflow-scheduler:
     build: ./airflow
-    # This is the corrected block
     depends_on:
       airflow-init:
         condition: service_completed_successfully
@@ -67,6 +68,7 @@ services:
       - AIRFLOW__WEBSERVER__BASE_URL=http://localhost:8080
       - AIRFLOW__LOGGING__BASE_LOG_FOLDER=/opt/airflow/logs
       - AIRFLOW__LOGGING__REMOTE_LOGGING=False
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
     volumes:
       - ./airflow:/opt/airflow         # persist metadata db + configs
       - ./dags:/opt/airflow/dags
@@ -75,6 +77,22 @@ services:
       - ./plugins:/opt/airflow/plugins
     command: scheduler
 
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:latest
+    container_name: mlflow-tracking-server
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow_data:/mlflow
+    command: >
+      mlflow server 
+      --host 0.0.0.0 
+      --port 5000
+      --backend-store-uri sqlite:///mlflow/mlflow.db 
+      --default-artifact-root /mlflow/mlruns
+      --allowed-hosts "*"
+
 volumes:
   airflow_data:
   airflow_logs:
+  mlflow_data:
