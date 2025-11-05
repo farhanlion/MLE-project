@@ -72,20 +72,40 @@ config["val_end"] = config["test_start"] - timedelta(days=1)
 config["val_start"] = config["test_start"] - relativedelta(months=val_months)
 config["train_end"] = config["val_start"] - timedelta(days=1)
 config["train_start"] = config["val_start"] - relativedelta(months=train_months)
+config["data_start_date"] = config["train_start"]
+config["data_end_date"]   = config["oot_end"]
+
 
 
 # --------------------------------------------------------------------------------------
 # Load Data
 # --------------------------------------------------------------------------------------
-data = pd.read_csv(args.data_path, parse_dates=["snapshot_date"])
-data["snapshot_date"] = data["snapshot_date"].dt.date
+# data = pd.read_csv(args.data_path, parse_dates=["snapshot_date"])
+# data["snapshot_date"] = data["snapshot_date"].dt.date
 
-feature_cols = [
-    'tenure_days_at_snapshot', 'registered_via', 'city_clean', 
-    'sum_secs_w30', 'active_days_w30', 'complete_rate_w30',
-    'sum_secs_w7', 'engagement_ratio_7_30', 'days_since_last_play',
-    'trend_secs_w30', 'auto_renew_share', 'last_is_auto_renew'
-]
+# ------------------------------------------------------
+# LOAD SPARK PARQUET
+# ------------------------------------------------------
+
+features_path = "/app/datamart/gold/training_feature_store/"
+labels_path   = "/app/datamart/gold/training_label_store/"
+
+features_sdf = (
+    spark.read.parquet(features_path)
+         .filter(
+            (col("snapshot_date") >= F.lit(config["data_start_date"])) &
+            (col("snapshot_date") <= F.lit(config["data_end_date"]))
+         )
+)
+
+labels_sdf = (
+    spark.read.parquet(labels_path)
+         .filter(
+            (col("snapshot_date") >= F.lit(config["data_start_date"])) &
+            (col("snapshot_date") <= F.lit(config["data_end_date"]))
+         )
+)
+
 
 def slice_data(df, start, end):
     return df[
@@ -97,6 +117,13 @@ train = slice_data(data, config["train_start"], config["train_end"])
 val   = slice_data(data, config["val_start"],   config["val_end"])
 test  = slice_data(data, config["test_start"],  config["test_end"])
 oot   = slice_data(data, config["oot_start"],   config["oot_end"])
+
+feature_cols = [
+    'tenure_days_at_snapshot', 'registered_via', 'city_clean', 
+    'sum_secs_w30', 'active_days_w30', 'complete_rate_w30',
+    'sum_secs_w7', 'engagement_ratio_7_30', 'days_since_last_play',
+    'trend_secs_w30', 'auto_renew_share', 'last_is_auto_renew'
+]
 
 X_train, y_train = train[feature_cols], train["label"]
 X_val,   y_val   = val[feature_cols],   val["label"]
@@ -184,7 +211,7 @@ def train_model(
     X_val, y_val, 
     X_test, y_test, 
     X_oot, y_oot,
-    n_iter=50
+    n_iter=10
 ):
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=RANDOM_STATE)
 
