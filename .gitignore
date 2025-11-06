@@ -10,3 +10,5 @@ logs/
 airflow/airflow.db
 
 
+airflow/airflow.db
+airflow/airflow-webserver.pid
