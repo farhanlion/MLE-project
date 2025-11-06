@@ -1,5 +1,6 @@
 data/
 datamart/
+data*
 .ipynb_checkpoints/
 .Trash-0/
 __pycache__/.jupyter_ystore.db
@@ -8,3 +9,6 @@ __pycache__/
 logs/
 airflow/airflow.db
 
+
+airflow/airflow.db
+airflow/airflow-webserver.pid
