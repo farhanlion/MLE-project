@@ -23,6 +23,7 @@ import numpy as np
 import pandas as pd
 import mlflow
 import mlflow.sklearn
+import joblib
 
 from pyspark.sql import SparkSession
 import pyspark.sql.functions as F
@@ -142,7 +143,7 @@ def log_metrics_mlflow(metrics_dict):
 def train_and_register(
     model_name, estimator, param_dist,
     X_train, y_train, X_val, y_val, X_test, y_test, X_oot, y_oot,
-    n_iter, cv_strategy, random_state=42
+    n_iter, cv_strategy, random_state=42, scaler=None, lr_cols=None, categorical_cols=None
 ):
     logger.info(f"Starting training for {model_name}")
 
@@ -190,6 +191,33 @@ def train_and_register(
         # Log model artifact
         artifact_path = f"{model_name}_model"
         mlflow.sklearn.log_model(best, artifact_path)
+        
+        # Save preprocessing artifacts for Logistic Regression
+        if scaler is not None:
+            # Save scaler
+            scaler_path = "scaler.pkl"
+            joblib.dump(scaler, scaler_path)
+            mlflow.log_artifact(scaler_path, artifact_path="preprocessing")
+            os.remove(scaler_path)
+            logger.info("Saved scaler to MLflow")
+            
+        if lr_cols is not None:
+            # Save feature column names after one-hot encoding
+            lr_cols_path = "lr_feature_columns.txt"
+            with open(lr_cols_path, 'w') as f:
+                f.write('\n'.join(lr_cols))
+            mlflow.log_artifact(lr_cols_path, artifact_path="preprocessing")
+            os.remove(lr_cols_path)
+            logger.info(f"Saved {len(lr_cols)} LR feature columns to MLflow")
+            
+        if categorical_cols is not None and len(categorical_cols) > 0:
+            # Save categorical column names
+            cat_cols_path = "categorical_columns.txt"
+            with open(cat_cols_path, 'w') as f:
+                f.write('\n'.join(categorical_cols))
+            mlflow.log_artifact(cat_cols_path, artifact_path="preprocessing")
+            os.remove(cat_cols_path)
+            logger.info(f"Saved {len(categorical_cols)} categorical columns to MLflow")
 
         # Register the model in Model Registry
         run_id = mlflow.active_run().info.run_id
@@ -302,14 +330,23 @@ def main(args):
     spark.stop()
     logger.info("Stopped Spark - continuing in pandas")
 
-    # Build feature list (auto-detect fe_*), allow override by CLI if provided
-    if args.feature_prefix:
-        feature_cols = [c for c in sampled_pdfs["train"].columns if c.startswith(args.feature_prefix)]
-    else:
-        # default to fe_ prefix
-        feature_cols = [c for c in sampled_pdfs["train"].columns if c.startswith("fe_")]
+    # Build feature list - use hardcoded list (not auto-detect fe_*)
+    # Commenting out auto-detection as per user requirement
+    # if args.feature_prefix:
+    #     feature_cols = [c for c in sampled_pdfs["train"].columns if c.startswith(args.feature_prefix)]
+    # else:
+    #     # default to fe_ prefix
+    #     feature_cols = [c for c in sampled_pdfs["train"].columns if c.startswith("fe_")]
+    
+    # Use hardcoded feature list
+    feature_cols = [
+        'tenure_days_at_snapshot', 'registered_via', 'city_clean', 
+        'sum_secs_w30', 'active_days_w30', 'complete_rate_w30', 
+        'sum_secs_w7', 'engagement_ratio_7_30', 'days_since_last_play', 
+        'trend_secs_w30', 'auto_renew_share', 'last_is_auto_renew'
+    ]
 
-    logger.info(f"Detected {len(feature_cols)} feature columns")
+    logger.info(f"Using {len(feature_cols)} hardcoded feature columns")
 
     # Create X/y for each split
     X_train = sampled_pdfs["train"][feature_cols].copy()
@@ -331,11 +368,10 @@ def main(args):
         df["missing_any"] = df.isnull().any(axis=1).astype(int)
         df.fillna(0, inplace=True)
 
-    # Prepare for LR: OHE categorical if any (assume no categorical among fe_*, else user override)
-    # If your features include categorical columns not starting with fe_, pass them via --categorical-cols
-    categorical_cols = args.categorical_cols.split(",") if args.categorical_cols else []
-    if categorical_cols:
-        logger.info(f"Doing one-hot for categorical columns: {categorical_cols}")
+    # Prepare for LR: OHE categorical if any
+    # Hardcode categorical columns that need one-hot encoding
+    categorical_cols = ['registered_via', 'city_clean']
+    logger.info(f"Using hardcoded categorical columns for one-hot encoding: {categorical_cols}")
 
     # Build LR datasets (one-hot + scaler)
     def prepare_lr_df(df, train_cols=None, scaler=None, fit=False):
@@ -419,7 +455,8 @@ def main(args):
     lr_model, lr_metrics = train_and_register(
         "LogisticRegression", lr_base, lr_param_dist,
         X_train_lr, y_train, X_val_lr, y_val, X_test_lr, y_test, X_oot_lr, y_oot,
-        n_iter=N_ITER, cv_strategy=cv, random_state=args.random_state
+        n_iter=N_ITER, cv_strategy=cv, random_state=args.random_state,
+        scaler=scaler, lr_cols=list(lr_cols), categorical_cols=categorical_cols
     )
 
     xgb_model, xgb_metrics = train_and_register(
