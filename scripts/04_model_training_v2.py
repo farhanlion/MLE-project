@@ -329,14 +329,6 @@ def main(args):
     # Close spark (we have pandas)
     spark.stop()
     logger.info("Stopped Spark - continuing in pandas")
-
-    # Build feature list - use hardcoded list (not auto-detect fe_*)
-    # Commenting out auto-detection as per user requirement
-    # if args.feature_prefix:
-    #     feature_cols = [c for c in sampled_pdfs["train"].columns if c.startswith(args.feature_prefix)]
-    # else:
-    #     # default to fe_ prefix
-    #     feature_cols = [c for c in sampled_pdfs["train"].columns if c.startswith("fe_")]
     
     # Use hardcoded feature list
     feature_cols = [
@@ -490,15 +482,15 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="KKBox churn model training with Spark ingestion and MLflow")
     parser.add_argument("--train_date", type=str, required=True, help="model training cutoff date YYYY-MM-DD")
-    parser.add_argument("--features_path", type=str, default="/app/datamart/gold/training_feature_store/", help="parquet path for features")
-    parser.add_argument("--labels_path", type=str, default="/app/datamart/gold/training_label_store/", help="parquet path for labels")
+    parser.add_argument("--features_path", type=str, default="/app/datamart/gold/feature_store/", help="parquet path for features")
+    parser.add_argument("--labels_path", type=str, default="/app/datamart/gold/label_store/", help="parquet path for labels")
     parser.add_argument("--sample_frac", type=float, default=0.3, help="stratified sample fraction per split (0..1)")
     parser.add_argument("--feature_prefix", type=str, default="fe_", help="prefix to detect feature columns")
     parser.add_argument("--label_col", type=str, default="label", help="label column name in labels parquet")
     parser.add_argument("--categorical_cols", type=str, default="", help="comma-separated categorical columns (optional)")
     parser.add_argument("--mlflow_tracking_uri", type=str, default="http://mlflow:5000", help="MLflow tracking URI")
     parser.add_argument("--mlflow_experiment", type=str, default="kkbox-churn-prediction", help="MLflow experiment name")
-    parser.add_argument("--n_iter", type=int, default=50, help="RandomizedSearchCV n_iter")
+    parser.add_argument("--n_iter", type=int, default=10, help="RandomizedSearchCV n_iter")
     parser.add_argument("--cv_folds", type=int, default=5, help="CV folds")
     parser.add_argument("--random_state", type=int, default=42, help="Random seed")
     parser.add_argument("--train_months", type=int, default=8)

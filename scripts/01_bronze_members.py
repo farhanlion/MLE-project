@@ -28,7 +28,7 @@ def initialize_spark(app_name: str = "bronze_members", driver_memory: str = "8g"
         .master("local[*]") \
         .getOrCreate()
     
-    spark.sparkContext.setLogLevel("ERROR")
+    spark.sparkContext.setLogLevel("INFO")
     logger.info("Spark session initialized")
     return spark
 
