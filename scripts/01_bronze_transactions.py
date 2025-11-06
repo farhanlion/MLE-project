@@ -196,7 +196,7 @@ def main():
         # Read CSV
         v1 = read_csv(spark, transactions_path)
         v2 = read_csv(spark, transaction_v2_path)
-        df_new = pd.concat([v1, v2], ignore_index=True)
+        df_new = v1.union(v2)
         
         # Add source tracking
         source_name = Path(transactions_path).name

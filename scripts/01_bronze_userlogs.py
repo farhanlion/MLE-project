@@ -189,7 +189,7 @@ def main():
         # Get paths
         user_logs_path = "data/user_logs.csv"
         user_logs_v2_path = "data/user_logs_v2.csv"
-        bronze_path = "data/user_logs_v2.csv"
+        bronze_path = "datamart/bronze/user_logs"
         
         # Read CSV
         v1 = read_csv(spark, user_logs_path )
