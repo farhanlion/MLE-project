@@ -5,6 +5,9 @@ from airflow.operators.dummy import DummyOperator
 from airflow.operators.python import PythonOperator
 from airflow.exceptions import AirflowSkipException
 from datetime import datetime, timedelta
+import json
+
+date = datetime(2017, 1, 1)
 
 # Wait for data_pipeline to complete
 UPSTREAM_DAG_ID = 'data_pipeline_dag'

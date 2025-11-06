@@ -45,12 +45,8 @@ def clean_bronze_table(monthdir):
         lower, upper = fences_for(c)
         cond = (col(c) >= lower) & (col(c) <= upper)
         condition = cond if condition is None else (condition & cond)
-        print(f"{c}: keeping values between {lower:.2f} and {upper:.2f}")
 
     df_clean = df.filter(condition)
-
-    print("Before cleaning:", df.count())
-    print("After cleaning:", df_clean.count())
 
     # Change date column to date type
     df_clean = df_clean.withColumn("date", to_date(col("date").cast("string"), "yyyyMMdd"))
@@ -60,8 +56,8 @@ def clean_bronze_table(monthdir):
 
 
 # === Process all months from bronze and write to silver ===
-bronze_root = "datamart/bronze/user_logs"
-silver_root = "datamart/silver/user_logs"
+bronze_root = "/app/datamart/bronze/user_logs"
+silver_root = "/app/datamart/silver/user_logs"
 
 # Find month directories like: datamart/bronze/user_logs/year=YYYY/month=MM
 month_dirs = sorted(glob.glob(os.path.join(bronze_root, "year=*/month=*")))

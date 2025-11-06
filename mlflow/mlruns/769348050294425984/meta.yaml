@@ -1,0 +1,6 @@
+artifact_location: file:///app/notebooks/05_model_training/mlruns/769348050294425984
+creation_time: 1762231004132
+experiment_id: '769348050294425984'
+last_update_time: 1762231004132
+lifecycle_stage: active
+name: KKBox_Churn_Prediction

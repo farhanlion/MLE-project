@@ -13,8 +13,11 @@ services:
 
   airflow-init:
     build: ./airflow
+    user: "0:0"
     environment:
       - AIRFLOW__CORE__EXECUTOR=SequentialExecutor
+      - AIRFLOW__CORE__DAGS_FOLDER=/app/dags
+      - AIRFLOW__CORE__DAG_IGNORE_FILE_REGEX=.*/\.ipynb_checkpoints/.*|.*~$|.*\.swp$
       - AIRFLOW__CORE__FERNET_KEY=PAqBeGJLJTYFzVkOGHWIYXdLO7XdXz5yTdxAGJe9ezM=
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
       - AIRFLOW__WEBSERVER__WEB_SERVER_HOST=0.0.0.0
@@ -23,10 +26,8 @@ services:
       - AIRFLOW__LOGGING__REMOTE_LOGGING=False
       - MLFLOW_TRACKING_URI=http://mlflow:5000
     volumes:
+      - .:/app
       - ./airflow:/opt/airflow
-      - ./dags:/opt/airflow/dags
-      - ./scripts:/opt/airflow/scripts
-      - ./datamart:/app/datamart
       - ./logs:/opt/airflow/logs
       - ./plugins:/opt/airflow/plugins
     entrypoint: >
@@ -34,11 +35,14 @@ services:
 
   airflow-webserver:
     build: ./airflow
+    user: "0:0"
     depends_on:
       airflow-init:
         condition: service_completed_successfully
     environment:
       - AIRFLOW__CORE__EXECUTOR=SequentialExecutor
+      - AIRFLOW__CORE__DAGS_FOLDER=/app/dags
+      - AIRFLOW__CORE__DAG_IGNORE_FILE_REGEX=.*/\.ipynb_checkpoints/.*|.*~$|.*\.swp$
       - AIRFLOW__CORE__FERNET_KEY=PAqBeGJLJTYFzVkOGHWIYXdLO7XdXz5yTdxAGJe9ezM=
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
       - AIRFLOW__WEBSERVER__WEB_SERVER_HOST=0.0.0.0
@@ -47,10 +51,8 @@ services:
       - AIRFLOW__LOGGING__REMOTE_LOGGING=False
       - MLFLOW_TRACKING_URI=http://mlflow:5000
     volumes:
+      - .:/app
       - ./airflow:/opt/airflow
-      - ./dags:/opt/airflow/dags
-      - ./scripts:/opt/airflow/scripts
-      - ./datamart:/app/datamart
       - ./logs:/opt/airflow/logs
       - ./plugins:/opt/airflow/plugins
     ports:
@@ -59,11 +61,14 @@ services:
 
   airflow-scheduler:
     build: ./airflow
+    user: "0:0"
     depends_on:
       airflow-init:
         condition: service_completed_successfully
     environment:
       - AIRFLOW__CORE__EXECUTOR=SequentialExecutor
+      - AIRFLOW__CORE__DAGS_FOLDER=/app/dags
+      - AIRFLOW__CORE__DAG_IGNORE_FILE_REGEX=.*/\.ipynb_checkpoints/.*|.*~$|.*\.swp$
       - AIRFLOW__CORE__FERNET_KEY=PAqBeGJLJTYFzVkOGHWIYXdLO7XdXz5yTdxAGJe9ezM=
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
       - AIRFLOW__WEBSERVER__WEB_SERVER_HOST=0.0.0.0
@@ -72,10 +77,8 @@ services:
       - AIRFLOW__LOGGING__REMOTE_LOGGING=False
       - MLFLOW_TRACKING_URI=http://mlflow:5000
     volumes:
+      - .:/app
       - ./airflow:/opt/airflow
-      - ./dags:/opt/airflow/dags
-      - ./scripts:/opt/airflow/scripts
-      - ./datamart:/app/datamart
       - ./logs:/opt/airflow/logs
       - ./plugins:/opt/airflow/plugins
     command: scheduler
