@@ -71,12 +71,13 @@ def build_config(train_date_str, train_months=8, val_months=2, test_months=2, oo
 
     return cfg
 
-def start_spark(app_name="model_training", master="local[*]"):
+def start_spark(app_name="model_training", master="local[*]"):   
     spark = (
         SparkSession.builder
         .appName(app_name)
         .master(master)
-        .config("spark.sql.shuffle.partitions", "8")
+        .config("spark.driver.memory", "4g") \
+        .master("local[*]") \
         .getOrCreate()
     )
     spark.sparkContext.setLogLevel("WARN")

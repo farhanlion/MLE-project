@@ -47,51 +47,51 @@ with DAG(
     silver_max_expiry_date = BashOperator(
         task_id='silver_max_expiry_date',
         bash_command=(
-            'python /app/scripts/02_max_expiry_latest_txn_bronzetosilver.py '
+            'python /app/scripts/02_silver_max_expirydate.py '
         ),
     )
 
     silver_members = BashOperator(
         task_id='silver_members',
         bash_command=(
-            'python /app/scripts/02_members_bronzetosilver.py '
+            'python /app/scripts/02_silver_members.py '
         ),
     )
 
     silver_transactions = BashOperator(
         task_id='silver_transactions',
         bash_command=(
-            'python /app/scripts/02_transactions_bronzetosilver.py '
+            'python /app/scripts/02_silver_transactions.py '
         ),
     )
 
     silver_latest_transactions = BashOperator(
         task_id='silver_latest_transactions',
         bash_command=(
-            'python /app/scripts/02_latest_transactions_bronzetosilver.py '
+            'python /app/scripts/02_silver_latest_transactions.py '
         ),
     )
 
     silver_userlogs = BashOperator(
         task_id='silver_userlogs',
         bash_command=(
-            'python /app/scripts/02_userlogs_bronzetosilver.py '
+            'python /app/scripts/02_silver_userlogs.py '
         ),
     )
     
     
     # Gold Processing 
-    gold_inference_feature_store = BashOperator(
+    gold_feature_store = BashOperator(
         task_id="gold_feature_store",        
         bash_command=(
-            'python /app/scripts/03_gold_feature_processing_v2.py --mode full'
+            'python /app/scripts/03_gold_feature_processing.py'
         ),
     )
 
     gold_label_store = BashOperator(
         task_id="gold_label_store",        
         bash_command=(
-            'python /app/scripts/03_gold_label_processing_v2.py --mode full'
+            'python /app/scripts/03_gold_label_processing.py'
         ),
     )
 
@@ -106,21 +106,7 @@ with DAG(
         silver_max_expiry_date,
         silver_latest_transactions
     ] >> DummyOperator(task_id="gold_start") >> [
-        gold_inference_feature_store,
+        gold_feature_store,
         gold_label_store
     ]
 
-    
-
-
-
-
-
-    # 3. ALL Silver tasks to Gold
-    # The list/tuple syntax means the succeeding task (gold_inference_feature_store) will only start once ALL tasks in the list/tuple succeed.
-    # [
-    #     silver_table_members,
-    #     silver_table_transactions,
-    #     silver_table_userlogs,
-    #     silver_table_max_expiry_date
-    # ] >> gold_inference_feature_store
