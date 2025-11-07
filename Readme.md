@@ -189,6 +189,16 @@ Steps:
 
 ### Option B – via Python Scripts
 Run specific stages manually:
+
+```bash
+python 01_generate_medalion_tables.py
+python python 02_main_training_pipeline.py YYYY-MM-DD # the training date
+python 03_inference_and_monitoring # currently hardcoded a date
+```
+
+Or run each script: 
+
+
 ```bash
 # Bronze Layer
 python scripts/01_bronze_members.py
