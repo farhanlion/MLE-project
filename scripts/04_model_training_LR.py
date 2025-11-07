@@ -16,8 +16,17 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import RandomizedSearchCV
 from scipy.stats import uniform
 from sklearn.metrics import roc_auc_score, precision_score, recall_score, f1_score
+import os
+import sys
+from pathlib import Path
 
-from app.utils.model_preprocessor import prepare_data_for_training
+from pathlib import Path
+import sys
+
+# Add /app/utils to PYTHONPATH automatically
+sys.path.append(str(Path(__file__).resolve().parents[1] / "utils"))
+
+from model_preprocessor import prepare_data_for_training
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
