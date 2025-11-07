@@ -1,0 +1,14 @@
+artifact_uri: /app/notebooks/05_model_training/mlruns/769348050294425984/1f07ece2986b488f871d1fe14b3868b3/artifacts
+end_time: null
+entry_point_name: ''
+experiment_id: '769348050294425984'
+lifecycle_stage: active
+run_id: 1f07ece2986b488f871d1fe14b3868b3
+run_name: RandomForest_Tuning
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1762231004514
+status: 1
+tags: []
+user_id: root

@@ -24,17 +24,17 @@ with DAG(
     start = EmptyOperator(task_id="start")
 
     with TaskGroup(group_id="train_ML_models") as training:
-        trainlr = BashOperator(
-            task_id="run_LR",
-            bash_command=(
-                f"python /app/scripts/04_model_training_LR.py "
-                f"--train_date {DUMMY_DATE}"
-            )
-        )
         trainxgb = BashOperator(
             task_id="run_XGB",
             bash_command=(
                 f"python /app/scripts/04_model_training_XGB.py "
+                f"--train_date {DUMMY_DATE}"
+            )
+        )
+        trainlr = BashOperator(
+            task_id="run_LR",
+            bash_command=(
+                f"python /app/scripts/04_model_training_LR.py "
                 f"--train_date {DUMMY_DATE}"
             )
         )
