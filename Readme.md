@@ -178,14 +178,14 @@ Once started:
 ## 2️⃣ Run Data Pipeline
 
 ### Option A – via Airflow (Recommended)
-Airflow DAGs are located in /dags:
-	•	data_pipeline_dag.py – ETL from Bronze → Silver → Gold
-	•	scheduled_training_dag.py – Automated model training
-	•	daily_inference_monitoring_dag.py – Daily inference and monitoring
+Airflow DAGs are located in /dags:  
+	•	data_pipeline_dag.py – ETL from Bronze → Silver → Gold  
+	•	scheduled_training_dag.py – Automated model training  
+	•	daily_inference_monitoring_dag.py – Daily inference and monitoring  
 
-Steps:
-	1.	Open Airflow UI (http://localhost:8080)
-	2.	Trigger the DAG manually or let it run on schedule
+Steps:  
+	1.	Open Airflow UI (http://localhost:8080)  
+	2.	Trigger the DAG manually or let it run on schedule  
 
 ### Option B – via Python Scripts
 Run specific stages manually:
