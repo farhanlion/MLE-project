@@ -10,8 +10,8 @@ scripts = [
     "/app/scripts/02_silver_transactions.py",
     "/app/scripts/02_silver_latest_transactions.py",
     "/app/scripts/02_silver_userlogs.py",
-    "/app/scripts/03_gold_feature_processing.py --mode full",
-    "/app/scripts/03_gold_label_processing.py --mode full"
+    "/app/scripts/03_gold_feature_processing.py",
+    "/app/scripts/03_gold_label_processing.py"
 ]
 
 def run_script(script_path):
