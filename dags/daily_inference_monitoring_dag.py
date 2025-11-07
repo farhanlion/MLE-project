@@ -25,8 +25,8 @@ from datetime import datetime, timedelta
 # HARDCODED VALUES
 # ------------------------
 MODEL_FILE = "xgb_model_20251103_122821.pkl"
-CURRENT_SNAPSHOT = "2016-04-10"
-BASELINE_SNAPSHOT = "2016-04-02"
+CURRENT_SNAPSHOT = "2016-05-01"
+BASELINE_SNAPSHOT = "2016-04-10"
 
 INFERENCE_SCRIPT = "/app/scripts/05_model_inference.py"
 MONITORING_SCRIPT = "/app/scripts/06_monitor_predictions.py"
@@ -75,8 +75,8 @@ python {INFERENCE_SCRIPT}
           --model_label xgb_model_20251103_122821.pkl \
           --snapshotdate 2016-04-10 \
           --baseline_date 2016-04-02 \
-          --pred_path /app/datamart/gold/predictions/predictions_2016_04_10.parquet \
-          --baseline_path /app/datamart/gold/predictions/predictions_2016_04_02.parquet \
+          --pred_path /app/datamart/gold/predictions/predictions_2016_05_01.parquet \
+          --baseline_path /app/datamart/gold/predictions/predictions_2016_04_10.parquet \
           --output_dir /app/datamart/gold/model_monitoring/xgb_model_20251103_122821 \
           --labels_path /app/datamart/gold/label_store
         """
