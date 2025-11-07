@@ -95,8 +95,8 @@ def main():
         spark = initialize_spark()
         
         # Get paths 
-        members_path = "data/members_v3.csv"
-        bronze_path = "datamart/bronze/members"
+        members_path = "/app/data/members_v3.csv"
+        bronze_path = "/app/datamart/bronze/members"
         
         # Read CSV
         df = read_csv(spark, members_path)
