@@ -24,8 +24,8 @@ from xgboost import XGBClassifier
 from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold
 from sklearn.metrics import roc_auc_score, precision_score, recall_score, f1_score
 from scipy.stats import uniform, randint
-
-    
+import sys
+from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1] / "utils"))
 
 from model_preprocessor import preprocess_features_for_tree
@@ -191,7 +191,7 @@ def main(args):
         n_iter=args.n_iter,
         scoring="roc_auc",
         cv=cv,
-        n_jobs=-1,
+        n_jobs=1,
         random_state=args.random_state,
         return_train_score=True
     )

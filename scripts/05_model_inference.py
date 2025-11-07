@@ -49,7 +49,6 @@ feature_cols = artifact.get("feature_columns")           # final OHE columns exp
 numeric_cols_meta = artifact.get("numeric_columns", [])  # numeric columns list saved at training
 orig_feature_list = artifact.get("original_feature_columns") or artifact.get("original_feature_list")
 
-
 # --- Build X aligned to feature_cols ---
 if feature_cols:
     # Determine raw categorical columns to OHE:
@@ -142,7 +141,9 @@ out_path = os.path.join(OUT_BASE, f"predictions_{SNAPSHOT.replace('-', '_')}.par
 save_df = pdf[["msno", "snapshot_date", "churn_proba", "model_file"]].copy()
 
 # Write to parquet (overwrite)
-spark.createDataFrame(save_df).write.mode("overwrite").parquet(out_path)
+spark.createDataFrame(save_df) \
+  .write.mode("append") \
+  .parquet(out_path)
 
 print(f"Saved predictions to: {out_path}")
 

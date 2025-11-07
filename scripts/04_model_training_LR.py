@@ -26,13 +26,14 @@ from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold
 from sklearn.metrics import roc_auc_score, precision_score, recall_score, f1_score
 from sklearn.utils.class_weight import compute_class_weight
 from scipy.stats import uniform
-
+import sys
+from pathlib import Path
 
     
     
 sys.path.append(str(Path(__file__).resolve().parents[1] / "utils"))
 
-from model_preprocessor import preprocess_features_for_tree
+from model_preprocessor import preprocess_features_for_lr
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")

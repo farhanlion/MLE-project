@@ -52,21 +52,65 @@ def find_prediction_path(model_label, snapshotdate):
 
 
 def read_preds(spark, path):
+    """
+    Read parquet at `path` and return a pandas DataFrame with a column named
+    'prediction_proba'.  Tries several common column-name patterns and falls
+    back to picking the first numeric column (excluding id/date).
+    """
     sdf = spark.read.parquet(path)
     pdf = sdf.toPandas()
-    # pick prediction column (common patterns)
-    pred_cols = [c for c in pdf.columns if "pred" in c.lower()]
-    if len(pred_cols) == 0:
-        raise KeyError("no prediction column (with 'pred' in name) found in prediction file")
-    # choose the first numeric pred column
-    for pc in pred_cols:
-        if pd.api.types.is_numeric_dtype(pdf[pc]):
-            pdf = pdf.rename(columns={pc: "prediction_proba"})
+
+    # canonicalize column names for searching
+    cols = pdf.columns.tolist()
+    cols_lower = [c.lower() for c in cols]
+
+    # priority search patterns (in order)
+    preferred = [
+        "prediction_proba", "model_prediction_proba", "churn_proba", "proba", "probability",
+        "prob", "score", "prediction", "pred"
+    ]
+
+    chosen = None
+    for p in preferred:
+        # try exact match first (case-insensitive)
+        for i, lc in enumerate(cols_lower):
+            if lc == p:
+                chosen = cols[i]
+                break
+        if chosen:
             break
-    if "prediction_proba" not in pdf.columns:
-        # fallback: coerce first pred col
-        pdf = pdf.rename(columns={pred_cols[0]: "prediction_proba"})
+        # then substring match
+        for i, lc in enumerate(cols_lower):
+            if p in lc:
+                chosen = cols[i]
+                break
+        if chosen:
+            break
+
+    # If still not found, pick the first numeric column excluding id/date
+    if chosen is None:
+        # exclude identifier/date-ish columns
+        exclude = set(["msno", "snapshot_date", "id", "member_id", "userid"])
+        numeric_cols = [c for c in cols if c not in exclude and pd.api.types.is_numeric_dtype(pdf[c])]
+        if len(numeric_cols) == 0:
+            raise KeyError(
+                "No prediction-like column found. Searched for: "
+                + ", ".join(preferred)
+                + ". Also no numeric columns available to fall back to."
+            )
+        chosen = numeric_cols[0]  # pick first numeric column
+
+    # rename chosen column to 'prediction_proba' if needed
+    if chosen != "prediction_proba":
+        pdf = pdf.rename(columns={chosen: "prediction_proba"})
+
+    # sanity: ensure it's numeric
+    pdf["prediction_proba"] = pd.to_numeric(pdf["prediction_proba"], errors="coerce")
+    if pdf["prediction_proba"].isnull().all():
+        raise ValueError(f"Chosen prediction column '{chosen}' could not be converted to numeric.")
+
     return pdf
+
 
 
 def psi(expected, actual, bins=10, eps=1e-8):
