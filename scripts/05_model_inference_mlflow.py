@@ -1,3 +1,16 @@
+#!/usr/bin/env python3
+# coding: utf-8
+"""
+inference.py
+
+Loads features for a snapshot_date, loads a registered MLflow model and its preprocessing
+artifacts, delegates preprocessing to preprocessing_before_fit, runs predict_proba, and
+saves predictions back to parquet.
+
+Supports loading model either by registered model name/URI (--modelname) OR by MLflow Run ID (--runid).
+If both are provided, --runid takes precedence.
+"""
+
 import argparse
 import os
 import glob
@@ -10,20 +23,26 @@ import pyspark
 import pyspark.sql.functions as F
 from pyspark.sql.functions import col
 from datetime import datetime
+import sys
+from pathlib import Path
 
-# ============================================================================
+# Add repository root to PYTHONPATH so preprocessing_before_fit can be imported if needed.
+repo_root = Path(__file__).resolve().parents[0]
+if str(repo_root) not in sys.path:
+    sys.path.append(str(repo_root))
+
+import preprocessing_before_fit as preproc  # <-- our shared preprocessing module
+
+# ============================================================================#
 # Logging Setup
-# ============================================================================
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(message)s"
-)
+# ============================================================================#
+logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 logger = logging.getLogger(__name__)
 
 
-# ============================================================================
+# ============================================================================#
 # Load features from feature store
-# ============================================================================
+# ============================================================================#
 def load_features(spark, snapshot_date_str):
     """
     Load features from feature store for the given snapshot_date.
@@ -50,9 +69,7 @@ def load_features(spark, snapshot_date_str):
         )
 
         if not all_parquet_files:
-            raise FileNotFoundError(
-                f"No parquet files found in feature store: {feature_location}"
-            )
+            raise FileNotFoundError(f"No parquet files found in feature store: {feature_location}")
 
         logger.info(f"Found {len(all_parquet_files)} parquet files in entire store.")
         features = spark.read.parquet(feature_location)
@@ -65,97 +82,126 @@ def load_features(spark, snapshot_date_str):
     return df
 
 
-# ============================================================================
-# Load MLflow Model
-# ============================================================================
-def load_preprocessing_artifacts(model_uri):
+# ============================================================================#
+# Load preprocessing artifacts from MLflow run artifacts
+# ============================================================================#
+def load_preprocessing_artifacts_from_run(run_id):
     """
-    Load preprocessing artifacts (scaler, feature columns, categorical columns)
-    from MLflow model artifacts.
-    Returns: scaler, lr_feature_cols, categorical_cols
+    Download preprocessing artifact directory and load scaler, lr columns, categorical columns if present.
+    Returns (scaler_or_None, lr_feature_cols_or_None, categorical_cols_or_None)
     """
-    # Extract run_id and artifact_path from model_uri
-    # model_uri format: "models:/ModelName/Production" or "models:/ModelName/1"
     client = mlflow.tracking.MlflowClient()
-    
-    if model_uri.startswith("models:/"):
-        # Parse registered model
-        parts = model_uri.replace("models:/", "").split("/")
-        model_name = parts[0]
-        version_or_stage = parts[1] if len(parts) > 1 else "Production"
-        
-        # Get model version details
-        if version_or_stage.lower() in ["production", "staging", "archived", "none"]:
-            model_versions = client.get_latest_versions(model_name, stages=[version_or_stage])
-            if not model_versions:
-                raise ValueError(f"No model found in stage: {version_or_stage}")
-            model_version = model_versions[0]
-        else:
-            # Specific version number
-            model_version = client.get_model_version(model_name, version_or_stage)
-        
-        run_id = model_version.run_id
-    else:
-        raise ValueError(f"Unsupported model_uri format: {model_uri}")
-    
-    logger.info(f"Loading preprocessing artifacts from run_id: {run_id}")
-    
-    # Download artifacts
-    artifact_path = client.download_artifacts(run_id, "preprocessing")
-    
-    # Load scaler
+    artifact_path = client.download_artifacts(run_id=run_id, path="preprocessing")
+    if not artifact_path:
+        logger.warning("No preprocessing artifacts directory found in run artifacts.")
+        return None, None, None
+
     scaler = None
     scaler_path = os.path.join(artifact_path, "scaler.pkl")
     if os.path.exists(scaler_path):
         scaler = joblib.load(scaler_path)
-        logger.info("✅ Loaded scaler from MLflow")
+        logger.info("✅ Loaded scaler from MLflow artifacts.")
     else:
-        logger.warning("⚠️  No scaler.pkl found - model might be tree-based")
-    
-    # Load feature columns
+        logger.info("No scaler.pkl found in artifacts (likely a tree model).")
+
     lr_feature_cols = None
-    feature_cols_path = os.path.join(artifact_path, "lr_feature_columns.txt")
-    if os.path.exists(feature_cols_path):
-        with open(feature_cols_path, 'r') as f:
-            lr_feature_cols = [line.strip() for line in f.readlines()]
-        logger.info(f"✅ Loaded {len(lr_feature_cols)} feature columns from MLflow")
-    
-    # Load categorical columns
+    lr_cols_path = os.path.join(artifact_path, "lr_feature_columns.txt")
+    if os.path.exists(lr_cols_path):
+        with open(lr_cols_path, "r") as f:
+            lr_feature_cols = [line.strip() for line in f.readlines() if line.strip()]
+        logger.info(f"✅ Loaded {len(lr_feature_cols)} LR feature columns from artifacts.")
+
     categorical_cols = None
     cat_cols_path = os.path.join(artifact_path, "categorical_columns.txt")
     if os.path.exists(cat_cols_path):
-        with open(cat_cols_path, 'r') as f:
-            categorical_cols = [line.strip() for line in f.readlines()]
-        logger.info(f"✅ Loaded {len(categorical_cols)} categorical columns from MLflow")
-    
+        with open(cat_cols_path, "r") as f:
+            categorical_cols = [line.strip() for line in f.readlines() if line.strip()]
+        logger.info(f"✅ Loaded {len(categorical_cols)} categorical columns from artifacts.")
+
     return scaler, lr_feature_cols, categorical_cols
 
 
-def load_mlflow_model(model_name):
+def load_preprocessing_artifacts(model_uri):
     """
-    Load an MLflow model by registered name or full URI.
+    Given a model URI like 'models:/ModelName/Production' or 'models:/ModelName/1',
+    find the run_id from the model version / latest version in stage, and load artifacts.
+    Returns scaler, lr_feature_cols, categorical_cols.
     """
-    mlflow.set_tracking_uri("http://mlflow:5000")
+    client = mlflow.tracking.MlflowClient()
 
-    if model_name.startswith("models:/"):
-        model_uri = model_name
+    if not model_uri.startswith("models:/"):
+        raise ValueError("model_uri must start with 'models:/' (e.g. 'models:/MyModel/Production')")
+
+    parts = model_uri.replace("models:/", "").split("/")
+    model_name = parts[0]
+    version_or_stage = parts[1] if len(parts) > 1 else "Production"
+
+    # If a stage name was provided, get the latest version in that stage; otherwise get specific version
+    if not version_or_stage.isdigit():
+        # stage name
+        versions = client.get_latest_versions(name=model_name, stages=[version_or_stage])
+        if not versions:
+            raise ValueError(f"No versions found for model {model_name} in stage {version_or_stage}")
+        mv = versions[0]
     else:
-        model_uri = f"models:/{model_name}/Production"
+        mv = client.get_model_version(name=model_name, version=version_or_stage)
+
+    run_id = mv.run_id
+    logger.info(f"Resolved model {model_name}/{version_or_stage} -> run_id={run_id}")
+
+    return load_preprocessing_artifacts_from_run(run_id)
+
+
+# ============================================================================#
+# Load MLflow model (sklearn flavor) OR from specific run id
+# ============================================================================#
+def load_mlflow_model(model_name_or_uri, tracking_uri=None):
+    if tracking_uri:
+        mlflow.set_tracking_uri(tracking_uri)
+    else:
+        # default expected in your infra
+        mlflow.set_tracking_uri("http://mlflow:5000")
+
+    if model_name_or_uri.startswith("models:/"):
+        model_uri = model_name_or_uri
+    else:
+        model_uri = f"models:/{model_name_or_uri}/Production"
 
     logger.info(f"Loading MLflow model from: {model_uri}")
 
     try:
         model = mlflow.sklearn.load_model(model_uri)
         logger.info("✅ MLflow model loaded successfully")
-        return model
+        return model, model_uri
     except Exception as e:
-        logger.error(f"Failed to load MLflow model: {e}")
+        logger.exception("Failed to load MLflow model.")
         raise
 
 
-# ============================================================================
+def load_model_from_runid(run_id, tracking_uri=None):
+    """
+    Load a model directly from a run id (artifact path 'model').
+    Returns (model, model_uri)
+    """
+    if tracking_uri:
+        mlflow.set_tracking_uri(tracking_uri)
+    else:
+        mlflow.set_tracking_uri("http://mlflow:5000")
+
+    model_uri = f"runs:/{run_id}/model"
+    logger.info(f"Loading MLflow model from run URI: {model_uri}")
+    try:
+        model = mlflow.sklearn.load_model(model_uri)
+        logger.info("✅ MLflow model loaded from run")
+        return model, model_uri
+    except Exception as e:
+        logger.exception("Failed to load model from run id.")
+        raise
+
+
+# ============================================================================#
 # Save predictions to datamart
-# ============================================================================
+# ============================================================================#
 def save_predictions(spark, df_predictions, model_name, snapshot_date_str):
     """
     Save predictions to parquet under:
@@ -176,89 +222,21 @@ def save_predictions(spark, df_predictions, model_name, snapshot_date_str):
     logger.info(f"✅ Predictions saved: {filepath}")
 
 
-# ============================================================================
-# Apply Preprocessing (same as training)
-# ============================================================================
-def apply_preprocessing(df, categorical_cols=None, scaler=None, lr_feature_cols=None):
-    """
-    Apply the same preprocessing steps as training:
-    Step 1: Create missing value indicators
-    Step 2: Fill missing values
-    Step 3: One-hot encode categorical features (if applicable)
-    Step 4: Scale features (if scaler provided)
-    
-    Args:
-        df: Input dataframe with raw features
-        categorical_cols: List of categorical column names to one-hot encode
-        scaler: Fitted StandardScaler object (for LogisticRegression)
-        lr_feature_cols: Expected feature columns after encoding (for alignment)
-    
-    Returns:
-        Processed dataframe ready for model prediction
-    """
-    df_proc = df.copy()
-    
-    # Step 1: Create missing value indicators
-    df_proc["missing_any"] = df_proc.isnull().any(axis=1).astype(int)
-    logger.info("Step 1: Created missing value indicators")
-    
-    # Step 2: Fill missing values
-    df_proc.fillna(0, inplace=True)
-    logger.info("Step 2: Filled missing values with 0")
-    
-    # Step 3: One-hot encode categorical features (if model requires it)
-    if categorical_cols is not None and len(categorical_cols) > 0:
-        df_proc = pd.get_dummies(
-            df_proc, 
-            columns=categorical_cols, 
-            drop_first=True, 
-            dtype=int
-        )
-        logger.info(f"Step 3: One-hot encoded {len(categorical_cols)} categorical columns")
-    
-    # Step 4: Align columns with training feature set (if provided)
-    if lr_feature_cols is not None:
-        # Add missing columns with 0s
-        for col in lr_feature_cols:
-            if col not in df_proc.columns:
-                df_proc[col] = 0
-        
-        # Keep only the expected columns in the right order
-        df_proc = df_proc[lr_feature_cols]
-        logger.info(f"Step 3b: Aligned features to {len(lr_feature_cols)} columns")
-    
-    # Step 4: Scale features (if scaler provided - for LogisticRegression)
-    if scaler is not None:
-        # Identify numeric columns to scale (exclude binary flags and dummies)
-        numeric_cols = [c for c in df_proc.columns 
-                       if not c.endswith("_flag") 
-                       and df_proc[c].dtype in ['float64', 'int64']
-                       and df_proc[c].nunique() > 2]  # Exclude binary columns
-        
-        if numeric_cols:
-            df_proc[numeric_cols] = scaler.transform(df_proc[numeric_cols])
-            logger.info(f"Step 4: Scaled {len(numeric_cols)} numeric features")
-    
-    return df_proc
-
-
-# ============================================================================
-# Main Inference Pipeline
-# ============================================================================
-def main(snapshot_date_str, model_name):
-
+# ============================================================================#
+# Inference pipeline
+# ============================================================================#
+def main(snapshot_date_str, model_name=None, run_id=None, mlflow_tracking_uri=None):
     logger.info("=== Starting Model Inference Job ===")
 
-    # Spark session
+    # Start Spark
     spark = pyspark.sql.SparkSession.builder \
         .appName("inference") \
         .master("local[*]") \
         .getOrCreate()
     spark.sparkContext.setLogLevel("ERROR")
 
-    # Load features
+    # Load features (Spark DF)
     features_sdf = load_features(spark, snapshot_date_str)
-
     logger.info("Feature schema:")
     features_sdf.printSchema()
 
@@ -266,53 +244,108 @@ def main(snapshot_date_str, model_name):
     features_pdf = features_sdf.toPandas()
     logger.info(f"Converted Spark → Pandas: shape={features_pdf.shape}")
 
-    # Extract raw feature columns (same 12 features as training)
-    feature_cols = ['tenure_days_at_snapshot', 'registered_via', 'city_clean', 
-                'sum_secs_w30', 'active_days_w30', 'complete_rate_w30', 
-                'sum_secs_w7', 'engagement_ratio_7_30', 'days_since_last_play', 
-                'trend_secs_w30', 'auto_renew_share', 'last_is_auto_renew']
+    # Make sure the msno and snapshot_date columns exist for output
+    if "msno" not in features_pdf.columns or "snapshot_date" not in features_pdf.columns:
+        logger.error("Input features must contain 'msno' and 'snapshot_date' columns.")
+        raise KeyError("msno or snapshot_date missing in features")
+
+    # Feature subset (same as training)
+    feature_cols = [
+        'tenure_days_at_snapshot', 'registered_via', 'city_clean',
+        'sum_secs_w30', 'active_days_w30', 'complete_rate_w30',
+        'sum_secs_w7', 'engagement_ratio_7_30', 'days_since_last_play',
+        'trend_secs_w30', 'auto_renew_share', 'last_is_auto_renew'
+    ]
     X_inference = features_pdf[feature_cols].copy()
 
-    # Load MLflow model
-    model = load_mlflow_model(model_name)
-    
-    # Load preprocessing artifacts
-    model_uri = f"models:/{model_name}/Production" if not model_name.startswith("models:/") else model_name
-    scaler, lr_feature_cols, categorical_cols = load_preprocessing_artifacts(model_uri)
-    
-    # Apply preprocessing (Steps 1-4: missing indicators, fill, one-hot encode, scale)
-    logger.info("Applying preprocessing steps...")
-    X_processed = apply_preprocessing(
-        X_inference, 
-        categorical_cols=categorical_cols,
-        scaler=scaler,
-        lr_feature_cols=lr_feature_cols
-    )
+    # Decide how to load model + preprocessing artifacts:
+    # If run_id provided -> load model and artifacts from that run
+    # Else -> load model by model_name/URI and resolve run -> artifacts
+    if run_id:
+        model, model_uri = load_model_from_runid(run_id, tracking_uri=mlflow_tracking_uri)
+        scaler, lr_feature_cols, categorical_cols = load_preprocessing_artifacts_from_run(run_id)
+    else:
+        if model_name is None:
+            raise ValueError("Either run_id or model_name must be provided.")
+        model, model_uri = load_mlflow_model(model_name, tracking_uri=mlflow_tracking_uri)
+        scaler, lr_feature_cols, categorical_cols = load_preprocessing_artifacts(model_uri)
+
+    # Apply preprocessing:
+    # - If lr_feature_cols and scaler exist -> apply LR-style OHE alignment + scaling
+    # - Otherwise apply tree-style preprocessing (missing flag + fill)
+    if lr_feature_cols and scaler is not None:
+        logger.info("Detected LR-style artifacts (feature column list + scaler). Applying LR preprocessing...")
+
+        # 1) one-hot encode categorical columns (if known). If not known, attempt to infer (no OHE).
+        if categorical_cols:
+            X_ohe = pd.get_dummies(X_inference.copy(), columns=categorical_cols, drop_first=True, dtype=int)
+        else:
+            X_ohe = X_inference.copy()
+
+        # 2) align columns to lr_feature_cols (add missing columns with 0, drop extras)
+        for c in lr_feature_cols:
+            if c not in X_ohe.columns:
+                X_ohe[c] = 0
+        # Keep only lr_feature_cols in the original order
+        X_aligned = X_ohe[lr_feature_cols].copy()
+
+        # 3) scale numeric columns using scaler: detect numeric columns in aligned frame
+        numeric_cols = [c for c in X_aligned.columns if pd.api.types.is_numeric_dtype(X_aligned[c])]
+        if len(numeric_cols) > 0:
+            try:
+                X_aligned[numeric_cols] = scaler.transform(X_aligned[numeric_cols])
+            except Exception as e:
+                logger.exception("Failed to transform numeric columns with scaler. Proceeding without scaling.")
+        X_processed = X_aligned.astype(float)
+
+    else:
+        logger.info("No LR artifacts detected — applying minimal tree preprocessing.")
+        X_processed = preproc.add_missing_flag_and_fill(X_inference)
+
     logger.info(f"Processed features shape: {X_processed.shape}")
 
-    # Predict
-    y_proba = model.predict_proba(X_processed)[:, 1]
+    # Predict probabilities
+    try:
+        y_proba = model.predict_proba(X_processed)[:, 1]
+    except Exception as e:
+        logger.exception("model.predict_proba failed. Make sure model supports predict_proba and input shape matches.")
+        raise
 
-    # Output dataframe
+    # Build output
     output = features_pdf[["msno", "snapshot_date"]].copy()
-    output["model_name"] = model_name
-    output["model_predictions"] = y_proba
+    output["model_name"] = run_id if run_id else model_name
+    output["model_prediction_proba"] = y_proba
 
-    # Save
-    save_predictions(spark, output, model_name, snapshot_date_str)
+    # Save predictions
+    # Use run_id if present, else fallback to model_name, else pkl path name
+    model_label = run_id or model_name or Path(args.modelpkl).stem
+
+    output["model_run_id"] = model_label  # store run ID in column
+
+    save_predictions(
+        spark,
+        output,
+        model_label,  # directory name will be run ID
+        snapshot_date_str
+    )
+
 
     spark.stop()
     logger.info("=== Inference Job Completed ===")
 
 
-# ============================================================================
-# Entry Point
-# ============================================================================
+# ============================================================================#
+# CLI
+# ============================================================================#
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run inference pipeline")
     parser.add_argument("--snapshotdate", type=str, required=True, help="YYYY-MM-DD")
-    parser.add_argument("--modelname", type=str, required=True,
-                        help="MLflow registered model name OR models:/name/version")
+    parser.add_argument("--runid", type=str, default="2ddc6524115b4d0ebd2d3161c7081289",
+                        help="MLflow Run ID to load model/artifacts directly (takes precedence over --modelname)")
+    parser.add_argument("--mlflow_tracking_uri", type=str, default=None,
+                        help="Optional MLflow tracking URI (if not provided uses http://mlflow:5000)")
+    parser.add_argument("--modelpkl", type=str, required=False,
+                    help="Path to local .pkl model file (fallback if MLflow not used)")
 
     args = parser.parse_args()
 
@@ -322,4 +355,4 @@ if __name__ == "__main__":
     except Exception:
         raise ValueError("snapshotdate must be in YYYY-MM-DD format")
 
-    main(args.snapshotdate, args.modelname)
+    main(args.snapshotdate, model_name=args.modelname, run_id=args.runid, mlflow_tracking_uri=args.mlflow_tracking_uri)
