@@ -2,8 +2,9 @@ from airflow import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.empty import EmptyOperator
 from datetime import datetime
+from airflow.utils.task_group import TaskGroup
 
-DUMMY_DATE = datetime.now().strftime("2016-01-01")
+DUMMY_DATE = "2016-04-01"
 
 default_args = {
     "owner": "airflow",
@@ -22,13 +23,29 @@ with DAG(
 
     start = EmptyOperator(task_id="start")
 
-    train = BashOperator(
-        task_id="run_training",
-        bash_command=(
-            f"python /app/scripts/04_model_training_v2.py --train_date {DUMMY_DATE}"
-        ),
-    )
+    with TaskGroup(group_id="train_ML_models") as training:
+        trainlr = BashOperator(
+            task_id="run_LR",
+            bash_command=(
+                f"python /app/scripts/04_model_training_LR.py "
+                f"--train_date {DUMMY_DATE}"
+            )
+        )
+        trainxgb = BashOperator(
+            task_id="run_XGB",
+            bash_command=(
+                f"python /app/scripts/04_model_training_XGB.py "
+                f"--train_date {DUMMY_DATE}"
+            )
+        )
+        trainrf = BashOperator(
+            task_id="run_RF",
+            bash_command=(
+                f"python /app/scripts/04_model_training_RF.py "
+                f"--train_date {DUMMY_DATE}"
+            )
+        )
 
     end = EmptyOperator(task_id="end")
 
-    start >> train >> end
+    start >> training >> end

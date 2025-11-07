@@ -90,11 +90,13 @@ services:
       - "5000:5000"
     volumes:
       - mlflow_data:/mlflow
+      - ./mlflow/mlruns:/import_mlruns:ro
+      - ./notebooks/05_model_training/mlruns:/import_mlruns
     command: >
       mlflow server 
       --host 0.0.0.0 
       --port 5000
-      --backend-store-uri sqlite:///mlflow/mlflow.db 
+      --backend-store-uri sqlite:///mlflow/mlflow.db
       --default-artifact-root /mlflow/mlruns
       --allowed-hosts "*"
 
