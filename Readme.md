@@ -217,8 +217,8 @@ python scripts/03_gold_feature_processing.py
 python scripts/03_gold_label_processing.py
 
 # Model Training & Inference
-python scripts/04_model_training_LR.py
-python scripts/04_model_training_RF.py
-python scripts/04_model_training_XGB.py
-python scripts/05_model_inference_mlflow.py`
+python scripts/04_model_training_LR.py --train_date "YYYY-MM-DD"
+python scripts/04_model_training_RF.py --train_date "YYYY-MM-DD"
+python scripts/04_model_training_XGB.py --train_date "YYYY-MM-DD"
+python scripts/05_model_inference_mlflow.py` --snapshotdate "YYYY-MM-DD"
 ``` 
