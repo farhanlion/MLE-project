@@ -6,7 +6,7 @@ import pyspark
 from pyspark.sql.functions import col
 
 # CONFIG
-SNAPSHOT = "2016-04-01"
+SNAPSHOT = "2016-04-10"
 FEATURE_BASE = "/app/datamart/gold/feature_store/"
 PARTITION = os.path.join(FEATURE_BASE, f"snapshot_date={SNAPSHOT}")
 MODEL_PKL = "/app/mlflow/models/lr_churn_model_latest.pkl"

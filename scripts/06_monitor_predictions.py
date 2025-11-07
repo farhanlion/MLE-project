@@ -30,6 +30,7 @@ import pandas as pd
 from scipy.stats import ks_2samp
 import pyspark
 from pyspark.sql.functions import col
+from sklearn.metrics import roc_auc_score, precision_score, recall_score, f1_score
 
 # Optional MLflow logging
 import mlflow
@@ -161,7 +162,7 @@ def compute_metrics_with_labels(pdf_preds, labels_pdf, label_col="label"):
         return None
     y_true = merged[label_col].astype(int)
     y_score = merged["prediction_proba"].astype(float)
-    from sklearn.metrics import roc_auc_score, precision_score, recall_score, f1_score
+
     metrics = {}
     try:
         metrics["roc_auc"] = float(roc_auc_score(y_true, y_score))
