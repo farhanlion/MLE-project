@@ -165,13 +165,15 @@ MLE-project/
 # Section 2: How to Run 
 ## 1️⃣ Start Environment
 
-Make sure you have Docker + Docker Compose installed.
+Make sure you have Docker + Docker Compose installed.  
 Build and start all services (Airflow, MLflow, JupyterLab):
-`docker-compose up --build`
-Once started:
-	•	Airflow Web UI: http://localhost:8080
-	•	MLflow Tracking UI: http://localhost:5000
-	•	JupyterLab: http://localhost:8888
+```bash
+docker-compose up --build
+```
+Once started:  
+	•	Airflow Web UI: http://localhost:8080  
+	•	MLflow Tracking UI: http://localhost:5000  
+	•	JupyterLab: http://localhost:8888  
 
 ## 2️⃣ Run Data Pipeline
 
