@@ -187,7 +187,8 @@ Steps:
 
 ### Option B – via Python Scripts
 Run specific stages manually:
-`# Bronze Layer
+```bash
+# Bronze Layer
 python scripts/01_bronze_members.py
 python scripts/01_bronze_transactions.py
 python scripts/01_bronze_userlogs.py
@@ -208,3 +209,4 @@ python scripts/04_model_training_LR.py
 python scripts/04_model_training_RF.py
 python scripts/04_model_training_XGB.py
 python scripts/05_model_inference_mlflow.py`
+``` 
