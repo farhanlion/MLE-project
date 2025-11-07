@@ -1,4 +1,4 @@
-artifact_uri: file:///app/notebooks/05_model_training/mlruns/769348050294425984/1f07ece2986b488f871d1fe14b3868b3/artifacts
+artifact_uri: /app/notebooks/05_model_training/mlruns/769348050294425984/1f07ece2986b488f871d1fe14b3868b3/artifacts
 end_time: null
 entry_point_name: ''
 experiment_id: '769348050294425984'
