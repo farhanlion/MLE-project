@@ -317,7 +317,18 @@ def main(snapshot_date_str, model_name=None, run_id=None, mlflow_tracking_uri=No
     output["model_prediction_proba"] = y_proba
 
     # Save predictions
-    save_predictions(spark, output, (run_id if run_id else model_name).replace("models:/", "").replace("/", "_"), snapshot_date_str)
+    # Use run_id if present, else fallback to model_name, else pkl path name
+    model_label = run_id or model_name or Path(args.modelpkl).stem
+
+    output["model_run_id"] = model_label  # store run ID in column
+
+    save_predictions(
+        spark,
+        output,
+        model_label,  # directory name will be run ID
+        snapshot_date_str
+    )
+
 
     spark.stop()
     logger.info("=== Inference Job Completed ===")
