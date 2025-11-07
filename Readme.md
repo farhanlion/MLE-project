@@ -80,12 +80,6 @@ Steps:
 ### Option B – via Python Scripts
 Run specific stages manually:
 
-```bash
-python 01_generate_medalion_tables.py
-python python 02_main_training_pipeline.py YYYY-MM-DD # the training date
-python 03_inference_and_monitoring # currently hardcoded a date
-```
-
 Or run each script: 
 
 
@@ -101,3 +95,6 @@ Trains the model for a chosen date and logs results to MLflow.
 python 03_inference_and_monitoring.py
 ``` 
 Runs inference and performs drift + performance monitoring.
+For simplicity and ease of debugging, we have hardcoded some of the dates and some of the dates are in variables. Which ofcourse will not be the case in a real deployment :)
+
+
